@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html ng-app="nockApp">
+<head>
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.6/angular.min.js"></script>
+    <script src="dagre-d3.js"></script>
+    <script src="bundle.js"></script>
+    <style>
+        .cell {
+            border: 1px solid black;
+            position: absolute;
+            text-align:center;
+            background-color: #ffffff;
+        }
+        canvas {
+            background-color: #dddddd;
+        }
+        .nowrap {
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+<div id="nock-graph" ng-controller="nockController" style="position: relative; margin: 20px">
+    <!-- <p class="nowrap">Nock expression: {{nockData.nockExpression}}</p> -->
+    <p class="nowrap">Nock: {{nockData.normalizedExpression}}</p>
+    <p ng-show="nockData.result !== null">Result: {{nockData.result}}</p>
+    <p ng-hide="nockData.result !== null"><button type="button" ng-click="step()">Step</button></p>
+    <div ng-repeat="level in stack">
+        <p class="nowrap">{{level.nocker.name}} ({{level.nocker.rule}}): {{treeString(level.tree)}}
+        <div ng-show="level.state.result !== null">
+            <b style="margin-left: 10pt" >result: {{treeString(level.state.result)}}</b>
+            <hr/>
+        </div>
+    </div>
+    <div style="position: relative;">
+        <canvas id="edge-canvas" width="2000" height="2000" style="position: absolute;"></canvas>
+        <div ng-repeat="node in nockData.nodes" style="
+            position: absolute;
+            text-align:center;
+            border: 1px solid black;
+            background-color: {{ node.leaf ? '#ddddff' : 'white'}};
+            color: {{ node.leaf ? 'blue' : 'black' }};
+            top: {{node.y - (node.height/2) + 'px'}};
+            left: {{node.x - (node.width/2) + 'px'}};
+            width: {{node.width + 'px'}};
+            height: {{node.height + 'px'}};
+        "
+        >
+            {{node.label}}
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -175,7 +175,7 @@ var parseQueryString = function (url) {
         var key = pair[0];
         var value = pair[1] || "";
         if (key) {
-            parsed[key] = unescape(value);
+            parsed[key] = decodeURIComponent(value.replace(/\+/g, '%20'));
         }
     }
     return parsed;

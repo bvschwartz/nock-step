@@ -2,94 +2,33 @@
 
 // the code that implements nock operations on a nock noun or atom
 
+var Promise = require('bluebird');
+//var Promise = require('q');
 var parseNock = require('./parse').parseNock;
 var normalizeArray = require('./parse').normalizeArray;
 var groupArray = require('./parse').groupArray;
+var arrayToNock = require('./parse').arrayToNock;
 
 var verbose = false;
+var debug = false;
 
 var isArray = Array.isArray;
 
 var nockers = [
-    {
-        name:       "distribution",
-        rule:       "*[a [b c] d] => [*[a b c] *[a d]]",
-        checkFunc:    checkDistribution,
-        doFunc:       doDistribution
-    },
-    {
-        name:       "operator 0: axis",
-        rule:       "*[a 0 b] => /[b a]",
-        checkFunc:    checkAxis,
-        doFunc:       doAxis
-    },
-    {
-        name:       "operator 1: just",
-        rule:       "*[a 1 b] => b",
-        checkFunc:    checkJust,
-        doFunc:       doJust
-    },
-    {
-        name:       "operator 2: fire",
-        rule:       "*[a 2 b c] => *[*[a b] *[a c]]",
-        checkFunc:    checkFire,
-        doFunc:       doFire
-    },
-    {
-        name:       "operator 3: depth",
-        rule:       "*[a 3 b] => ?*[a b]",
-        checkFunc:    checkDepth,
-        doFunc:       doDepth
-    },
-    {
-        name:       "operator 4: bump",
-        rule:       "*[a 4 b] => +*[a b]",
-        checkFunc:    checkBump,
-        doFunc:       doBump
-    },
-    {
-        name:       "operator 5: same",
-        rule:       "*[a 5 b] => =*[a b]",
-        checkFunc:    checkSame,
-        doFunc:       doSame
-    },
-    {
-        name:       "operator 6: if",
-        rule:       "*[a 6 b c d] => *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]",
-        checkFunc:    checkIf,
-        //doFunc:       doIfFull
-        doFunc:       doIf
-    },
-    {
-        name:       "operator 7: compose",
-        rule:       "*[a 7 b c] => *[a 2 b 1 c]",
-        checkFunc:    checkCompose,
-        doFunc:       doCompose
-    },
-    {
-        name:       "operator 8: push",
-        rule:       "*[a 8 b c] => *[a 7 [[7 [0 1] b] 0 1] c]",
-        checkFunc:    checkPush,
-        doFunc:       doPush
-    },
-    {
-        name:       "operator 9: call",
-        rule:       "*[a 9 b c] => *[a 7 c 2 [0 1] 0 b]",
-        checkFunc:    checkCall,
-        doFunc:       doCall
-    },
-    {
-        name:       "operator 10: hint(1)",
-        rule:       "*[a 10 [b c] d] => *[a 8 c 7 [0 3] d]",
-        checkFunc:    checkHint1,
-        doFunc:       doHint1
-    },
-    {
-        name:       "operator 10: hint(2)",
-        rule:       "*[a 10 b c] => *[a c]",
-        checkFunc:    checkHint2,
-        doFunc:       doHint2
-    },
+    nockDistribution,
+    nockAxis,
+    nockJust,
+    nockFire,
+    nockDepth,
+    nockBump,
+    nockSame,
+    //nockIf,
+    nockIf2,
+    nockCompose,
+    nockPush,
+    nockCall,
+    nockHint1,
+    nockHint2,
 ];
 
 function isAtom(noun) {
@@ -249,48 +188,65 @@ function checkHint2(tree) {
     return reason ? false : true;
 }
 
-function doDistribution(tree, state, engine) {
-    // compute *[a [b c] d]     [*[a b c] *[a d]]
-
-    if (state.evalResult !== null) {
-
-        if (state.compute.leftResult !== null) {
-            // this is the right result, we are done
-            verbose && console.log("DISTRO RIGHT: " + JSON.stringify(state.evalResult));
-            state.compute.rightResult = state.evalResult;
-            state.result = [ state.compute.leftResult, state.compute.rightResult ];
-            verbose && console.log("DISTRO: returning " + JSON.stringify(state.result));
-            return;
-        }
-
-        // this is the left result, compute right result
-        verbose && console.log("DISTRO LEFT: " + JSON.stringify(state.evalResult));
-        verbose && console.log("DISTRO: COMPUTE RIGHT: " + JSON.stringify([state.compute.a, state.compute.d]));
-        state.compute.leftResult = state.evalResult;
-        engine.pushEval([state.compute.a, state.compute.d]);
-        return;
+function calcState(result, depends) {
+    if (result !== null) {
+        return result;
     }
-
-    state.compute = {
-        leftResult: null,
-        rightResult: null
-    };
-
-    state.compute.a = tree[0];         // /2
-    state.compute.b = tree[1][0][0];   // 12
-    state.compute.c = tree[1][0][1];   // 13
-    state.compute.d = tree[1][1];      // 7
-    verbose && console.log("DISTRO a=" + JSON.stringify(state.compute.a));
-    verbose && console.log("DISTRO b=" + JSON.stringify(state.compute.b));
-    verbose && console.log("DISTRO c=" + JSON.stringify(state.compute.c));
-    verbose && console.log("DISTRO d=" + JSON.stringify(state.compute.d));
-
-    // first compute the left side
-    verbose && console.log("DISTRO: COMPUTE LEFT: " + JSON.stringify([state.compute.a, [state.compute.b, state.compute.c]]));
-    engine.pushEval([state.compute.a, [state.compute.b, state.compute.c]]);
+    if ((depends !== null) || (depends === undefined)) {
+        return "waiting...";
+    }
+    return null;
 }
 
-function doAxis(tree, state, engine) {
+function nockDistribution(tree, engine) {
+    // compute *[a [b c] d]     [*[a b c] *[a d]]
+    if (!checkDistribution(tree)) {
+        return null;
+    }
+
+    var that = {
+        name:       "distribution",
+        rule:       "*[a [b c] d] => [*[a b c] *[a d]]",
+        result:     null
+    };
+
+    var a = tree[0];         // /2
+    var b = tree[1][0][0];   // 12
+    var c = tree[1][0][1];   // 13
+    var d = tree[1][1];      // 7
+    var left = null;
+    var right = null;
+
+    that.state = function () {
+        return [
+            { label: "[a b c]", value: [a, [b, c]] },
+            { label: "[a d]", value: [a, d] },
+            { label: "*[a b c]", value: calcState(left) },
+            { label: "*[a d]", value: calcState(right, left) },
+            { label: "result", value: calcState(that.result, left) }
+        ];
+    };
+
+    that.reduce = function () {
+        console.log("nockDistribution state 0: " + JSON.stringify(that.state()));
+        engine.pushEval([a, [b, c]])
+            .then(function(r) {
+                left = r;
+                console.log("nockDistribution state 1: " + JSON.stringify(that.state()));
+                return engine.pushEval([a, d]);
+            })
+            .then(function(r) {
+                right = r;
+                that.result = [left, right ];
+                console.log("nockDistribution state 2: " + JSON.stringify(that.state()));
+            });
+    };
+
+    return that;
+}
+
+
+function nockAxis(tree, engine) {
     // compute /[b a]
     //  /[1 a]           a
     //  /[2 a b]         a
@@ -298,329 +254,589 @@ function doAxis(tree, state, engine) {
     //  /[(a + a) b]     /[2 /[a b]]
     //  /[(a + a + 1) b] /[3 /[a b]]
     //  /a               /a
-    function computeAxis(address, subtree) {
-        //console.log("computeAxis address=" + address + " subtree=" + JSON.stringify(subtree));
-        if (address == 1) {
-            return subtree;
-        }
-
-        if (!isArray(subtree)) {
-            return;
-        }
-        if (address === 0) {
-            return;
-        }
-        if (address === 2) {
-            return subtree[0];
-        }
-        if (address === 3) {
-            return subtree[1];
-        }
-        if (address % 2 === 0) {
-            return computeAxis(2, computeAxis(address/2, subtree))
-        }
-        if (address % 2 === 1) {
-            return computeAxis(3, computeAxis((address - 1)/2, subtree))
-        }
-        // undefined!
+    if (!checkAxis(tree)) {
+        return null;
     }
 
-    var fullAddress = tree[1][1];
-    var fullSubtree = tree[0];
+    var that = {
+        name:       "operator 0: axis",
+        rule:       "*[a 0 b] => /[b a]",
+        result:     null
+    };
 
-    state.result = computeAxis(fullAddress, fullSubtree);
-    // console.log("doAxis: returning " + JSON.stringify(state.result));
+    var a = tree[1][1];
+    var b = tree[0];
+
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "result", value: that.result }
+        ];
+    };
+
+    that.reduce = function () {
+        if (that.result !== null) return;
+        that.result = computeAxis(a, b);
+    };
+
+    return that;
 }
 
-function doJust(tree, state, engine) {
-    // compute b
-    state.result = undefined;
-    if (isArray(tree[1])) {
-        state.result = tree[1][1];
+// recursive function to look up an address in a tree
+function computeAxis(address, subtree) {
+    //console.log("computeAxis address=" + address + " subtree=" + JSON.stringify(subtree));
+    if (address == 1) {
+        return subtree;
     }
-}
-function doFire(tree, state, engine) {
-    // compute *[a 2 b c]       *[*[a b] *[a c]]
-    if (state.evalResult !== null) {
 
-        if (state.compute.rightResult !== null) {
-            // this is the combined result, we are done
-            verbose && console.log("FIRE COMBINED: " + JSON.stringify(state.evalResult));
-            state.compute.combinedResult = state.evalResult;
-            state.result = state.compute.combinedResult;
-            return;
-        }
-
-        if (state.compute.leftResult !== null) {
-            // this is the right result, compute combined result
-            verbose && console.log("FIRE RIGHT: " + JSON.stringify(state.evalResult));
-            verbose && console.log("FIRE IN THE HOLE: COMBINED");
-            state.compute.rightResult = state.evalResult;
-            engine.pushEval([ state.compute.leftResult, state.compute.rightResult]);
-            return;
-        }
-
-        // this is the left result, compute right result
-        verbose && console.log("FIRE LEFT: " + JSON.stringify(state.evalResult));
-        verbose && console.log("FIRE IN THE HOLE: RIGHT");
-        state.compute.leftResult = state.evalResult;
-        engine.pushEval([state.compute.a, state.compute.c]);
+    if (!isArray(subtree)) {
         return;
     }
+    if (address === 0) {
+        return;
+    }
+    if (address === 2) {
+        return subtree[0];
+    }
+    if (address === 3) {
+        return subtree[1];
+    }
+    if (address % 2 === 0) {
+        return computeAxis(2, computeAxis(address/2, subtree))
+    }
+    if (address % 2 === 1) {
+        return computeAxis(3, computeAxis((address - 1)/2, subtree))
+    }
+    // undefined!
+}
 
-    state.compute = {
-        leftResult: null,
-        rightResult: null,
-        combinedResult: null
+function nockJust(tree, engine) {
+    // "*[a 1 b] => b",
+    // compute b
+    if (!checkJust(tree)) {
+        return null;
     }
 
-    state.compute.a = tree[0];          // /2
-    state.compute.b = tree[1][1][0];    // 14
-    state.compute.c = tree[1][1][1];    // 15
-    verbose && console.log("FIRE a=" + JSON.stringify(state.compute.a));
-    verbose && console.log("FIRE b=" + JSON.stringify(state.compute.b));
-    verbose && console.log("FIRE c=" + JSON.stringify(state.compute.c));
+    var that = {
+        name:       "operator 1: just",
+        rule:       "*[a 1 b] => b",
+        result:     null
+    };
 
-    // first compute the left side
-    verbose && console.log("FIRE IN THE HOLE: LEFT")
-    engine.pushEval([state.compute.a, state.compute.b]);
+    var a = tree[0]
+    var b = tree[1][1];
+
+    that.reduce = function () {
+        that.result = b;
+    }
+
+    that.state = function () {
+        return [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "result", value: that.result }
+        ];
+    }
+    return that;
 }
-function doDepth(tree, state, engine) {
+
+function nockFire(tree, engine) {
+    // compute *[a 2 b c]       *[*[a b] *[a c]]
+    if (!checkFire(tree)) {
+        return null;
+    }
+
+    var that = {
+        name:       "operator 2: fire",
+        rule:       "*[a 2 b c] => *[*[a b] *[a c]]",
+        result:     null
+    };
+
+    var a = tree[0];        // /2
+    var b = tree[1][1][0];  // 14
+    var c = tree[1][1][1];  // 15
+    var left = null;
+    var right = null;
+    var combo = null;
+
+    that.state = function () {
+        return [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "*[a b]", value: calcState(left) },
+            { label: "*[a c]", value: calcState(right, left) },
+            { label: "combo", value: calcState(combo, right) },
+            { label: "result", value: calcState(that.result, right) }
+        ];
+    }
+
+    that.reduce = function () {
+        console.log("nockFire state 0: " + JSON.stringify(that.state()));
+        return engine.pushEval([a, b])
+            .then(function(r) {
+                left = r;
+                console.log("nockFire state 1: " + JSON.stringify(that.state()));
+                return engine.pushEval([a, c]);
+            })
+            .then(function(r) {
+                right = r;
+                combo = [ left, right ];
+                console.log("nockFire state 2: " + JSON.stringify(that.state()));
+                return engine.pushEval(combo);
+            })
+            .then(function(r) {
+                that.result = r;
+                console.log("nockFire state 3: " + JSON.stringify(that.state()));
+                return that.result;
+            });
+    }
+
+    return that;
+}
+
+function nockDepth(tree, engine) {
     // compute *[a 3 b]         ?*[a b]
     //  ?[a b]           0
     //  ?a               1
 
-    if (state.evalResult !== null) {
-        verbose && console.log("Compute depth of: " + JSON.stringify(state.evalResult) + " " + typeof(state.evalResult));
-        state.result = isArray(state.evalResult) ? 0 : 1;
-        return;
+    if (!checkDepth(tree)) {
+        return null;
     }
 
-    //console.log("doDepth /2=" + tree[0] + " /7=" + JSON.stringify(tree[1][1]));
-    if (tree[1][0] !== 3) {
-        console.log("INTERNAL ERROR"); process.exit();
-    }
-    engine.pushEval([ tree[0], tree[1][1] ]);
+    var that = {
+        name:       "operator 3: depth",
+        rule:       "*[a 3 b] => ?*[a b]",
+        result:     null
+    };
+
+    var a = tree[0];
+    var b = tree[1][1];
+    var calc = null;
+
+    that.state = function () {
+        return [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "[a b]", value: [a, b] },
+            { label: "*[a b]", value: calcState(calc) },
+            { label: "?*[a b]", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval([a, b])
+            .then(function(r) {
+                calc = r;
+                that.result = isArray(r) ? 0 : 1;
+                return that.result;
+            });
+    };
+
+    return that;
 }
 
-function doBump(tree, state, engine) {
+function nockBump(tree, engine) {
     // compute +*[a b]
     //  +a               1 + a
-    if (state.evalResult !== null) {
-        state.result = undefined;
-        if (typeof state.evalResult == "number") {
-            verbose && console.log("BUMPING " + state.evalResult);
-            state.result = state.evalResult + 1;
-        }
-        else {
-            verbose && console.log("CANNOT BUMP NON NUMBER " + state.evalResult);
-        }
-        return;
+
+    if (!checkBump(tree)) {
+        return null;
     }
-    //console.log("doBump /2=" + tree[0] + " /7=" + JSON.stringify(tree[1][1]));
-    engine.pushEval([ tree[0], tree[1][1] ]);
+
+    var that = {
+        name:       "operator 4: bump",
+        rule:       "*[a 4 b] => +*[a b]",
+        result:     null
+    };
+
+    var a = tree[0];
+    var b = tree[1][1];
+    var calc = null;
+
+    that.state = function () {
+        return [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "[a b]", value: [a, b] },
+            { label: "*[a b]", value: calcState(calc) },
+            { label: "+*[a b]", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval([a, b])
+            .then(function(r) {
+                calc = r;
+                that.result = (typeof r == "number") ? (r + 1) : undefined;
+                return that.result;
+            });
+    };
+
+    return that;
 }
 
-function doSame(tree, state, engine) {
+function nockSame(tree, engine) {
     // compute =*[a b]
     //  =[a a]           0
     //  =[a b]           1
     //  =a               =a
-    if (state.evalResult !== null) {
-        state.result = undefined;
-        if (isArray(state.evalResult) && isArray(state.evalResult)) {
-            verbose && console.log("compare: " + JSON.stringify(state.evalResult));
-            verbose && console.log("compare: " + JSON.stringify(state.evalResult[0]) + " to " + JSON.stringify(state.evalResult[1]));
-            if (JSON.stringify(state.evalResult[0]) === JSON.stringify(state.evalResult[1])) {
-                state.result = 0;
-            }
-            else {
-                state.result = 1;
-            }
-        }
-        return;
+
+    if (!checkSame(tree)) {
+        return null;
     }
 
-    console.log("doSame fullTree: " + JSON.stringify(tree));
-    console.log("doSame /2=" + JSON.stringify(tree[0]) + " /7=" + JSON.stringify(tree[1][1]));
-    engine.pushEval([ tree[0], tree[1][1] ]);
-}
-
-function doIf(tree, state, engine) {
-    // *[a 6 b c d]     *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
-
-    if (state.evalResult !== null) {
-        if (state.compute.diffResult === null) {
-            state.compute.diffResult = state.evalResult;
-            verbose && console.log("IF DIFF: " + JSON.stringify(state.compute.diffResult));
-
-            if (state.compute.diffResult === 0) {
-                evalTree = [state.compute.terms.a, state.compute.terms.c];
-            }
-            else if (state.compute.diffResult === 1) {
-                evalTree = [state.compute.terms.a, state.compute.terms.d];
-            }
-            else {
-                state.result = undefined;
-                return;
-            }
-            evalTree = normalizeArray(evalTree);
-            verbose && console.log("IF EVAL COMPUTE: " + JSON.stringify(evalTree));
-            engine.pushEval(evalTree);
-        }
-        else {
-            verbose && console.log("IF COMPUTE: " + JSON.stringify(state.evalResult));
-            state.result = state.evalResult;
-        }
-        return;
-    }
-
-    var a = tree[0];          // /2
-    var b = tree[1][1][0];    // 14
-    var c = tree[1][1][1][0]; // 30
-    var d = tree[1][1][1][1]; // 31
-
-    verbose && console.log("IF: " + JSON.stringify(tree));
-    verbose && console.log("IF a =" + JSON.stringify(a));
-    verbose && console.log("IF b =" + JSON.stringify(b));
-    verbose && console.log("IF c =" + JSON.stringify(c));
-    verbose && console.log("IF d =" + JSON.stringify(d));
-
-    state.compute = {
-        diffResult: null,
-
-        terms: {
-            a: a,
-            b: b,
-            c: c,
-            d: d
-        }
+    var that = {
+        name:       "operator 5: same",
+        rule:       "*[a 5 b] => =*[a b]",
+        result:     null
     };
 
-    var evalTree = [a, b];
-    evalTree = normalizeArray(evalTree);
-    verbose && console.log("IF EVAL DIFF: " + JSON.stringify(evalTree));
-    engine.pushEval(evalTree);
+    var a = tree[0];
+    var b = tree[1][1];
+    var calc = null;
+
+    that.state = function () {
+        return [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "[a b]", value: [a, b] },
+            { label: "*[a b]", value: calcState(calc) },
+            { label: "=*[a b]", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval([a, b])
+            .then(function(r) {
+                calc = r;
+                if (!isArray(r)) {
+                    console.log("SAME ERROR");
+                    that.result = undefined;
+                    return;
+                }
+                if (JSON.stringify(r[0]) === JSON.stringify(r[1])) {
+                    that.result = 0;
+                }
+                else {
+                    that.result = 1;
+                }
+            });
+    };
+
+    return that;
 }
 
-function doIfFull(tree, state, engine) {
+function nockIf(tree, engine) {
     // *[a 6 b c d]     *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkIf(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 6: if",
+        rule:       "*[a 6 b c d] => *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]",
+        result:     null
+    };
 
     var a = tree[0];          // /2
     var b = tree[1][1][0];    // 14
     var c = tree[1][1][1][0]; // 30
     var d = tree[1][1][1][1]; // 31
-    verbose && console.log("IF: " + JSON.stringify(tree));
-    verbose && console.log("IF a =" + JSON.stringify(a));
-    verbose && console.log("IF b =" + JSON.stringify(b));
-    verbose && console.log("IF c =" + JSON.stringify(c));
-    verbose && console.log("IF d =" + JSON.stringify(d));
+    var calc = null;
 
     var evalTree = [a, 2, [0, 1], 2, [1, c, d], [1, 0], 2, [1, 2, 3], [1, 0], 4, 4, b];
     evalTree = normalizeArray(evalTree);
-    verbose && console.log("IF EVAL: " + JSON.stringify(evalTree));
-    engine.pushEval(evalTree);
+
+    that.state = function () {
+        return [
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+
+    that.reduce = function () {
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    }
+
+    return that;
 }
 
-function doCompose(tree, state, engine) {
+function nockIf2(tree, engine) {
+    // *[a 6 b c d]     (*[a b] == 0) ? *[a c] : ((*[a b] == 1) ? *[a d] : error)
+
+    if (!checkIf(tree)) {
+        return null;
+    }
+
+    var that = {
+        name:       "operator 6: if",
+        //rule:       "*[a 6 b c d] => if [*a b] then *[a c] else *[a d]",
+        rule:       "*[a 6 b c d] => (*[a b] == 0) ? *[a c] : ((*[a b] == 1) ? *[a d] : error)",
+        result:     null
+    };
+
+    var a = tree[0];          // /2
+    var b = tree[1][1][0];    // 14
+    var c = tree[1][1][1][0]; // 30
+    var d = tree[1][1][1][1]; // 31
+    var diff = null;
+
+    that.state = function () {
+        var r = [
+            { label: "a", value: a },
+            { label: "b", value: b },
+            { label: "[a b]", value: [a, b] },
+            { label: "*[a b]", value: calcState(diff) },
+        ];
+        if (diff === 0) {
+            r.push({ label: "[a c]", value: [a, c] });
+            r.push({ label: "*[a c]", value: calcState(that.result) });
+        }
+        else if (diff === 1) {
+            r.push({ label: "[a d]", value: [a, d] });
+            r.push({ label: "*[a d]", value: calcState(that.result) });
+        }
+        else {
+            r.push({ label: "result", value: calcState(that.result, diff) });
+        }
+        return r;
+    };
+
+
+    that.reduce = function () {
+        return engine.pushEval([a, b])
+            .then(function(r) {
+                diff = r;
+                var exp;
+                that.diff = r;
+                if (r === 0) {
+                    exp = [a, c];
+                }
+                else if (r === 1) {
+                    exp = [a, d];
+                }
+                else {
+                    that.result = undefined;
+                    return that.result;
+                }
+                return engine.pushEval(exp);
+            })
+            .then(function(r) {
+                that.result = r;
+                return that.result;
+            });
+    }
+
+    return that;
+}
+
+function nockCompose(tree, engine) {
     // *[a 7 b c]       *[a 2 b 1 c]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkCompose(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 7: compose",
+        rule:       "*[a 7 b c] => *[a 2 b 1 c]",
+        result:     null
+    };
 
     var a = tree[0];          // /2
     var b = tree[1][1][0];    // 14
     var c = tree[1][1][1];    // 15
     var evalTree = [a, 2, b, 1, c];
     evalTree = normalizeArray(evalTree);
-    engine.pushEval(evalTree);
+
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+
+    that.reduce = function () {
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    };
+
+    return that;
 }
-function doPush(tree, state, engine) {
+
+function nockPush(tree, engine) {
     // *[a 8 b c]       *[a 7 [[7 [0 1] b] 0 1] c]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkPush(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 8: push",
+        rule:       "*[a 8 b c] => *[a 7 [[7 [0 1] b] 0 1] c]",
+        result:     null
+    };
 
     var a = tree[0];          // /2
     var b = tree[1][1][0];    // 14
     var c = tree[1][1][1];    // 15
     var evalTree = [a, 7, [[7, [0, 1], b], 0, 1], c];
     evalTree = normalizeArray(evalTree);
-    engine.pushEval(evalTree);
 
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    };
+
+    return that;
 }
-function doCall(tree, state, engine) {
+
+function nockCall(tree, engine) {
     // *[a 9 b c]       *[a 7 c 2 [0 1] 0 b]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkCall(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 9: call",
+        rule:       "*[a 9 b c] => *[a 7 c 2 [0 1] 0 b]",
+        result:     null
+    };
 
     var a = tree[0];          // /2
     var b = tree[1][1][0];    // 14
     var c = tree[1][1][1];    // 15
-    verbose && console.log("CALL tree =" + JSON.stringify(tree));
-    verbose && console.log("CALL a =" + JSON.stringify(a));
-    verbose && console.log("CALL b =" + JSON.stringify(b));
-    verbose && console.log("CALL c =" + JSON.stringify(c));
     var evalTree = [a, 7, c, 2, [0, 1], 0, b];
     evalTree = normalizeArray(evalTree);
-    engine.pushEval(evalTree);
 
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        console.log(JSON.stringify(that.state));
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    };
+
+    return that;
 }
-function doHint1(tree, state, engine) {
+function nockHint1(tree, engine) {
     // *[a 10 [b c] d]  *[a 8 c 7 [0 3] d]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkHint1(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 10: hint(1)",
+        rule:       "*[a 10 [b c] d] => *[a 8 c 7 [0 3] d]",
+        result:     null
+    };
+
 
     var a = tree[0];            // /2
     var b = tree[1][1][0][0];   // 28
     var c = tree[1][1][0][1];   // 29
     var d = tree[1][1][1];      // 15
-    verbose && console.log("HINT1 tree =" + JSON.stringify(tree));
-    verbose && console.log("HINT1 a =" + JSON.stringify(a));
-    verbose && console.log("HINT1 b =" + JSON.stringify(b));
-    verbose && console.log("HINT1 c =" + JSON.stringify(c));
-    verbose && console.log("HINT1 d =" + JSON.stringify(d));
     var evalTree = [a, 8, c, 7, [0, 3], d];
     evalTree = normalizeArray(evalTree);
-    engine.pushEval(evalTree);
+
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "d", value: d },
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    };
+
+    return that;
 }
-function doHint2(tree, state, engine) {
+function nockHint2(tree, engine) {
     // *[a 10 b c]      *[a c]
 
-    if (state.evalResult !== null) {
-        state.result = state.evalResult;
-        return;
+    if (!checkHint2(tree)) {
+        return null;
     }
+
+    var that = {
+        name:       "operator 10: hint(2)",
+        rule:       "*[a 10 b c] => *[a c]",
+        result:     null
+    };
 
     var a = tree[0];          // /2
     var b = tree[1][1][0];    // 14
     var c = tree[1][1][1];    // 15
-    verbose && console.log("HINT2 a =" + JSON.stringify(a));
-    verbose && console.log("HINT2 b =" + JSON.stringify(b));
-    verbose && console.log("HINT2 c =" + JSON.stringify(c));
     var evalTree = [a, c];
     evalTree = normalizeArray(evalTree);
-    engine.pushEval(evalTree);
+
+    that.state = function () {
+        return [
+            { label: "a", value: a }, 
+            { label: "b", value: b },
+            { label: "c", value: c },
+            { label: "transform", value: evalTree },
+            { label: "result", value: calcState(that.result) }
+        ];
+    };
+
+    that.reduce = function () {
+        return engine.pushEval(evalTree)
+            .then(function(r) {
+                that.result = r;
+            });
+    };
+
+    return that;
 }
 
-
 // find the matching nock function evaluator
-function findNockEvaluator(tree) {
+function findNocker(tree, engine) {
     var nocker;
 
     if (!isCell(tree)) {
@@ -628,84 +844,127 @@ function findNockEvaluator(tree) {
     }
 
     for (var i = 0; i < nockers.length; i++) {
-        var n = nockers[i];
-        if (n.checkFunc(tree)) {
+        var n = nockers[i](tree, engine);
+        if (n) {
             nocker = n;
             break;
         }
     }
-    //console.log("nocker: " + (nocker && (nocker.name + ": " + nocker.rule)));
+    if (nocker) {
+        console.log("nocker " + i + ": " + (nocker && (nocker.name + ": " + nocker.rule)));
+    }
     return nocker;
 }
 
-
-// evaluate a nockTree and return an object that can be stepped
-function nockEvalEngine(tree) {
-    //verbose && console.log("Eval tree: " + JSON.stringify(tree));
-    //var nocker = findNockEvaluator(tree);
-    //verbose && console.log("NockEvaluator: " + nocker.name);
-
-    //verbose && console.log("computing: " + ((nocker && nocker.name) || "NO-MATCH") + " for tree " + JSON.stringify(tree));
-
-    var stepCount = 0;
+function nockEngine(tree) {
     var that = {
         done: false,
         result: null,
-        stack: [],
-        step: step,
-        pushEval: pushEval
+        stack: []
     };
+
+    that.pushEval = pushEval;
+    that.step = step;
+
     that.pushEval(tree);
 
+    function pushEval(tree) {
+        console.log("pushEval expression: " + arrayToNock(tree));
 
-    function step() {
-        var top = that.stack[that.stack.length - 1];
-        //console.log("step: working on " + top.nocker.name);
-        if (top.state.result === null) {
-            top.nocker.doFunc(top.tree, top.state, that);
-            return;
+        var resolver = Promise.defer();
+        var nocker = findNocker(tree, that);
+        if (!nocker) {
+            console.log("could not find a nocker");
+            return Promise.resolve(undefined);
         }
-        var popped = top;
-        that.stack.pop();
-        if (that.stack.length == 0) {
-            that.done = true;
-            that.result = popped.state.result;
-            console.log("computation complete: '" + popped.nocker.name + "' result of " + JSON.stringify(popped.state.result) + " returned to '" + top.nocker.name + "'");
-        }
-        else {
-            top = that.stack[that.stack.length - 1];
-            top.state.evalResult = popped.state.result;
-            console.log(that.stack.length + "... done with computation: '" + popped.nocker.name + "' result of " + JSON.stringify(popped.state.result) + " returned to '" + top.nocker.name + "'");
-        }
+
+        that.stack.push({
+            tree: tree,
+            nocker: nocker,
+            resolver: resolver,
+            reduced: false
+        });
+
+        verbose && console.log("pushEval nocker: " + nocker.name);
+        return resolver.promise;
     }
 
-    function pushEval(pushTree) {
-        verbose && console.log("PUSH EVAL, STACK HEIGHT: " + that.stack.length);
-        var pushNocker = findNockEvaluator(pushTree);
-        if (!pushNocker) {
+    var step = 0;
+    var nocount = 0;
+    function step() {
+        step++;
+        debug && console.log("STEP " + step);
+        if (that.stack.length === 0) {
+            console.log("STEP: done, no stack");
             that.done = true;
-            that.result = undefined;
+            return;
         }
-        that.stack.push ({
-            nocker: pushNocker,
-            tree: pushTree,
-            state: {
-                result: null,
-                evalResult: null
+        var top = that.stack[that.stack.length - 1];
+        if (that.stack.length === 1 && top.nocker.result !== null) {
+            debug && console.log("STEP: done " + top.nocker.result);
+            that.done = true;
+            that.result = top.nocker.result;
+            return;
+        }
+        debug && console.log("STEP " + top.nocker.name + " result: " + top.nocker.result);
+        if (!top.reduced) {
+            console.log("STEP not reduced " + top.nocker.name);
+            top.nocker.reduce();
+            top.reduced = true;
+            return;
+        }
+        if (top.nocker.result === null) {
+            debug && console.log("!!!!!! STEP no result for " + top.nocker.name);
+            if (nocount++ > 3) {
+                process.exit();
             }
-        });
-        console.log(that.stack.length + " push computation: " + ((pushNocker && pushNocker.name && ("'" + pushNocker.name + "'")) || "NO-MATCH") + " for tree " + JSON.stringify(pushTree));
+            return;
+        }
+        if (top.nocker.result === undefined) {
+            that.result = undefined
+            that.done = true;
+        }
+        nocount = 0;
+        console.log("STEP resolve/pop " + top.nocker.name + " result: " + top.nocker.result);
+        top.resolver && top.resolver.resolve(top.nocker.result);
+        (that.stack.length > 1) && that.stack.pop();
     }
 
     return that;
 }
 
-module.exports.nockEvalEngine = nockEvalEngine;
+module.exports.nockEngine = nockEngine;
 
 ///////////////////////////////////////////////////
 if (require.main !== module) {
     return;
 }
+
+// new tests
+function nt1() {
+    var engine = null;
+
+    var tests = [
+        { text: "[0 [0, 99]" },
+        { text: "[0 [1, 99]" }
+    ];
+
+    tests.forEach(function(t) {
+        console.log("test: " + t.text);
+        var nock = parseNock(t.text);
+        var n = nockJust(nock, engine);
+        if (!n) {
+            console.log("no match");
+            return;
+        }
+        console.log("... state: " + JSON.stringify(n.state()));
+        n.reduce();
+        console.log("... state: " + JSON.stringify(n.state()));
+    });
+}
+
+//nt1();
+//process.exit();
 
 var nockTextTests = [
     // distribution
@@ -879,36 +1138,50 @@ function nockTextTest() {
     });
 }
 
-function nockEvalTest() {
-    computeTests.map(function(data) {
-        var tree = parseNock(data.nock);
-        var engine = nockEvalEngine(tree);
-        var maxSteps = 1000000;
-        var steps = maxSteps;
-        while (!engine.done) {
-            //console.log("STATE: " + engine.state);
-            engine.step();
-            if (--steps == 0) {
-                console.log("Too many steps: " + maxSteps);
-                break;
-            }
+function nockEvalTests() {
+    var i = 0;
+    
+    function nextTest() {
+        if (i === computeTests.length - 1) {
+            return;
         }
+        var data = computeTests[i];
+        var tree = parseNock(data.nock);
+        console.log("TEST " + i + ": " + arrayToNock(tree));
+        var engine = nockEngine(tree);
+        var iid = setInterval(function () {
+            engine.step();
+            if (engine.done) {
+                console.log("DONE\n\n");
+                clearInterval(iid);
+                i++;
+                if (checkResult(data, engine.result)) {
+                    nextTest();
+                }
+            }
+        }, 0);
+    }
+
+    function checkResult(data, result) {
         var good = data.result;
         if (typeof good == "string") {
             good = parseNock(good);
         }
         good = JSON.stringify(normalizeArray(good));
-        var mine = JSON.stringify(engine.result);
-        console.log("eval " + data.nock + " final value is: " + JSON.stringify(engine.result) + " PASS: " + (good === mine));
+        var mine = JSON.stringify(result);
+        console.log("eval " + data.nock + " final value is: " + JSON.stringify(result) + " PASS: " + (good === mine));
         if (good !== mine) {
             console.log("... should have been: " + JSON.stringify(good));
             process.exit();
         }
         console.log("\n\n");
-    });
+        return true;
+    }
+
+    nextTest();
 }
 
 //nockTextTest();
-nockEvalTest();
+nockEvalTests();
 
 

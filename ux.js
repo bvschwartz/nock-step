@@ -5,19 +5,35 @@ var nock = require("./nock");
 
 angular.module('nockApp', [])
 
-    .controller('nockController', ['$scope', 'nockTree', function ($scope, nockTree) {
+    .controller('nockController', ['$scope', 'nockTree', '$timeout', function ($scope, nockTree, $timeout) {
 
-        console.log("nockController...");
         $scope.nockData = nockTree.info.nockData;
         $scope.stack = nockTree.info.stack;
 
         $scope.step = function () {
             nockTree.step();
-            $scope.nockData = nockTree.info.nockData;
+            $timeout(function() {
+                nockTree.update();
+            }, 100);
+        };
+
+        $scope.state = function (nocker) {
+            return nocker.state();
         };
 
         $scope.treeString = function (tree) {
-            return JSON.stringify(tree).replace(/,/g, " ");
+            if (tree === null) {
+                return "";
+            }
+            else if (typeof tree === 'string') {
+                return tree;
+            }
+            else if (tree) {
+                return JSON.stringify(tree).replace(/,/g, " ");
+            }
+            else {
+                return JSON.stringify(tree);
+            }
         };
     }])
 
@@ -33,6 +49,8 @@ angular.module('nockApp', [])
         //nockExpression = "[[40 43] [6 [3 0 1] [4 0 2] [4 0 1]]]";
         //nockExpression = "[[[[6 [[5 [[4 [0 3]] [0 5]]] [[0 3] [2 [[[0 2] [4 [0 3]]] [0 4]]]]]] 2] 0] [6 [[5 [[4 [0 3]] [0 5]]] [[0 3] [2 [[[0 2] [4 [0 3]]] [0 4]]]]]]]";
         nockExpression = "[1 [2 [[[[1 [6 [[5 [[4 [0 3]] [0 5]]] [[0 3] [2 [[[0 2] [4 [0 3]]] [0 4]]]]]]] [0 1]] [1 0]] [1 [2 [[0 1] [0 4]]]]]]]";
+        //nockExpression = "[1 [[1 [6 [[5 [[4 [0 3]] [0 5]]] [[0 3] [2 [[[0 2] [4 [0 3]]] [0 4]]]]]]] [0 1]]]";
+        nockExpression = "[[40 43] [6 [3 0 1] [4 0 2] [4 0 1]]]";
         var q = parseQueryString(window.location.href);
         if (q.nock) {
             nockExpression = q.nock;
@@ -50,13 +68,18 @@ angular.module('nockApp', [])
         }
         else {
             nockData.normalizedExpression = JSON.stringify(nockTree).replace(/,/g, " ").replace(/ +/g, " ");
-            engine = nock.nockEvalEngine(nockTree);
+            engine = nock.nockEngine(nockTree);
             nockTreeInstance.stack = engine.stack;
         }
 
         var update = function () {
             if (!engine) return;
             //console.log(JSON.stringify(nockTree));
+
+            //console.log("UPDATE: stack " + engine.stack.length + ", result: " + nockData.result);
+            engine.stack.forEach(function(level) {
+                level.state = level.nocker.state();
+            });
 
             //console.log("initing test script");
             var dagre = dagreD3.dagre;
@@ -136,19 +159,6 @@ angular.module('nockApp', [])
 
             engine.step();
             nockData.result = engine.result;
-
-            if (engine.stack.length === 0) {
-                console.log("engine.step: stack is empty after step");
-            }
-            else {
-                var topOfStack = engine.stack[engine.stack.length - 1];
-                //console.log("AFTER: ");
-                //console.log(topOfStack);
-                //console.log("STACK HEIGHT: " + engine.stack.length);
-
-                //nockTree = topOfStack.tree;
-                nockTree = topOfStack.state.result == null ? topOfStack.tree : topOfStack.state.result;
-            }
 
             update();
         }

@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html ng-app="nockApp">
 <head>
+    <title>Nock-step: a graphical nock reducer</title>
     <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.6/angular.min.js"></script>
-    <script src="dagre-d3.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.4.6/angular.js"></script>
+    <script src="libs/dagre-d3.js"></script>
     <script src="bundle.js"></script>
     <style>
         .cell {
@@ -22,17 +23,19 @@
 </head>
 <body>
 <div id="nock-graph" ng-controller="nockController" style="position: relative; margin: 20px">
-    <!-- <p class="nowrap">Nock expression: {{nockData.nockExpression}}</p> -->
-    <p class="nowrap">Nock: {{nockData.normalizedExpression}}</p>
-    <p ng-show="nockData.result !== null">Result: {{nockData.result}}</p>
-    <p ng-hide="nockData.result !== null"><button type="button" ng-click="step()">Step</button></p>
+    <!--
+    <span class="nowrap">Nock: {{nockData.normalizedExpression}}</span><br>
+    -->
+    <p><button ng-hide="nockData.result !== null" type="button" ng-click="step()">Step</button> <span>nock-step: a graphical nock reducer</span></p>
     <div ng-repeat="level in stack">
-        <p class="nowrap">{{level.nocker.name}} ({{level.nocker.rule}}): {{treeString(level.tree)}}
-        <div ng-show="level.state.result !== null">
-            <b style="margin-left: 10pt" >result: {{treeString(level.state.result)}}</b>
-            <hr/>
+        <span class="nowrap"><b>{{treeString(level.tree)}}</b></span><br>
+        <span>{{level.nocker.name}} <i style="margin-left: 10px">{{level.nocker.rule}}</i></span><br>
+        <div ng-repeat="line in level.state">
+            <span style="margin-left: 20pt">{{line.label}}:</span> <span>{{treeString(line.value)}}</span>
         </div>
+        <hr/>
     </div>
+    <p ng-hide="nockData.result !== null"><button type="button" ng-click="step()">Step</button></p>
     <div style="position: relative;">
         <canvas id="edge-canvas" width="2000" height="2000" style="position: absolute;"></canvas>
         <div ng-repeat="node in nockData.nodes" style="

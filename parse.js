@@ -198,9 +198,18 @@ function parseNock(text) {
 
     return nock;
 }
+
+function arrayToNock(tree) {
+    if (typeof tree !== 'object') {
+        return tree;
+    }
+    return JSON.stringify(tree).replace(/,/g, ' ');
+}
+
 module.exports.parseNock = parseNock;
 module.exports.normalizeArray = normalizeArray;
 module.exports.groupArray = simplifyNock;
+module.exports.arrayToNock = arrayToNock;
 
 ///////////////////////////////////////////////////
 if (require.main !== module) {

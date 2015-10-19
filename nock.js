@@ -1,3 +1,4 @@
+/* jshint node: true, expr: true */
 "use strict";
 
 // the code that implements nock operations on a nock noun or atom
@@ -55,7 +56,7 @@ function checkDistribution(tree) {
     // looking for [a [[b c] d]]
     var reason;
     if (!isCell(tree[1])) {
-        var reason = "/3 is not a cell";
+        reason = "/3 is not a cell";
     }
     else if (!isCell(tree[1][0])) {
         reason = "/6 is not a cell";
@@ -303,10 +304,10 @@ function computeAxis(address, subtree) {
         return subtree[1];
     }
     if (address % 2 === 0) {
-        return computeAxis(2, computeAxis(address/2, subtree))
+        return computeAxis(2, computeAxis(address/2, subtree));
     }
     if (address % 2 === 1) {
-        return computeAxis(3, computeAxis((address - 1)/2, subtree))
+        return computeAxis(3, computeAxis((address - 1)/2, subtree));
     }
     // undefined!
 }
@@ -324,12 +325,12 @@ function nockJust(tree, engine) {
         result:     null
     };
 
-    var a = tree[0]
+    var a = tree[0];
     var b = tree[1][1];
 
     that.reduce = function () {
         that.result = b;
-    }
+    };
 
     that.state = function () {
         return [
@@ -337,7 +338,7 @@ function nockJust(tree, engine) {
             { label: "b", value: b },
             { label: "result", value: that.result }
         ];
-    }
+    };
     return that;
 }
 
@@ -370,7 +371,7 @@ function nockFire(tree, engine) {
             { label: "combo", value: calcState(combo, right) },
             { label: "result", value: calcState(that.result, right) }
         ];
-    }
+    };
 
     that.reduce = function () {
         console.log("nockFire state 0: " + JSON.stringify(that.state()));
@@ -391,7 +392,7 @@ function nockFire(tree, engine) {
                 console.log("nockFire state 3: " + JSON.stringify(that.state()));
                 return that.result;
             });
-    }
+    };
 
     return that;
 }
@@ -563,7 +564,7 @@ function nockIf(tree, engine) {
             .then(function(r) {
                 that.result = r;
             });
-    }
+    };
 
     return that;
 }
@@ -632,7 +633,7 @@ function nockIf2(tree, engine) {
                 that.result = r;
                 return that.result;
             });
-    }
+    };
 
     return that;
 }
@@ -889,11 +890,11 @@ function nockEngine(tree) {
         return resolver.promise;
     }
 
-    var step = 0;
+    var stepCount = 0;
     var nocount = 0;
     function step() {
-        step++;
-        debug && console.log("STEP " + step);
+        stepCount++;
+        debug && console.log("STEP " + stepCount);
         if (that.stack.length === 0) {
             console.log("STEP: done, no stack");
             that.done = true;
@@ -921,7 +922,7 @@ function nockEngine(tree) {
             return;
         }
         if (top.nocker.result === undefined) {
-            that.result = undefined
+            that.result = undefined;
             that.done = true;
         }
         nocount = 0;
@@ -1128,7 +1129,7 @@ function nockTextTest() {
     nockTextTests.map(function(nockText) {
         var msg = (nockText + "                                              ").substr(0, 40) + " ";
         var nock = parseNock(nockText);
-        var nocker = findNockEvaluator(nock);
+        var nocker = findNocker(nock);
         if (nocker) {
             console.log(msg + nocker.name);
         } 

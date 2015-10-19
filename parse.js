@@ -1,3 +1,4 @@
+/* jshint node: true, expr: true */
 "use strict";
 
 // Parse textual nock into a normalized data structure
@@ -130,7 +131,7 @@ function normalizeArray(nock) {
         if (!Array.isArray(cell)) {
             return cell;
         }
-        if (cell.length == 0) {
+        if (cell.length === 0) {
             return undefined;
         }
         if (cell.length == 1) {

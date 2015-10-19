@@ -1,5 +1,6 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (process){
+/* jshint node: true, expr: true */
 "use strict";
 
 // the code that implements nock operations on a nock noun or atom
@@ -57,7 +58,7 @@ function checkDistribution(tree) {
     // looking for [a [[b c] d]]
     var reason;
     if (!isCell(tree[1])) {
-        var reason = "/3 is not a cell";
+        reason = "/3 is not a cell";
     }
     else if (!isCell(tree[1][0])) {
         reason = "/6 is not a cell";
@@ -305,10 +306,10 @@ function computeAxis(address, subtree) {
         return subtree[1];
     }
     if (address % 2 === 0) {
-        return computeAxis(2, computeAxis(address/2, subtree))
+        return computeAxis(2, computeAxis(address/2, subtree));
     }
     if (address % 2 === 1) {
-        return computeAxis(3, computeAxis((address - 1)/2, subtree))
+        return computeAxis(3, computeAxis((address - 1)/2, subtree));
     }
     // undefined!
 }
@@ -326,12 +327,12 @@ function nockJust(tree, engine) {
         result:     null
     };
 
-    var a = tree[0]
+    var a = tree[0];
     var b = tree[1][1];
 
     that.reduce = function () {
         that.result = b;
-    }
+    };
 
     that.state = function () {
         return [
@@ -339,7 +340,7 @@ function nockJust(tree, engine) {
             { label: "b", value: b },
             { label: "result", value: that.result }
         ];
-    }
+    };
     return that;
 }
 
@@ -372,7 +373,7 @@ function nockFire(tree, engine) {
             { label: "combo", value: calcState(combo, right) },
             { label: "result", value: calcState(that.result, right) }
         ];
-    }
+    };
 
     that.reduce = function () {
         console.log("nockFire state 0: " + JSON.stringify(that.state()));
@@ -393,7 +394,7 @@ function nockFire(tree, engine) {
                 console.log("nockFire state 3: " + JSON.stringify(that.state()));
                 return that.result;
             });
-    }
+    };
 
     return that;
 }
@@ -565,7 +566,7 @@ function nockIf(tree, engine) {
             .then(function(r) {
                 that.result = r;
             });
-    }
+    };
 
     return that;
 }
@@ -634,7 +635,7 @@ function nockIf2(tree, engine) {
                 that.result = r;
                 return that.result;
             });
-    }
+    };
 
     return that;
 }
@@ -891,11 +892,11 @@ function nockEngine(tree) {
         return resolver.promise;
     }
 
-    var step = 0;
+    var stepCount = 0;
     var nocount = 0;
     function step() {
-        step++;
-        debug && console.log("STEP " + step);
+        stepCount++;
+        debug && console.log("STEP " + stepCount);
         if (that.stack.length === 0) {
             console.log("STEP: done, no stack");
             that.done = true;
@@ -923,7 +924,7 @@ function nockEngine(tree) {
             return;
         }
         if (top.nocker.result === undefined) {
-            that.result = undefined
+            that.result = undefined;
             that.done = true;
         }
         nocount = 0;
@@ -1130,7 +1131,7 @@ function nockTextTest() {
     nockTextTests.map(function(nockText) {
         var msg = (nockText + "                                              ").substr(0, 40) + " ";
         var nock = parseNock(nockText);
-        var nocker = findNockEvaluator(nock);
+        var nocker = findNocker(nock);
         if (nocker) {
             console.log(msg + nocker.name);
         } 
@@ -6080,6 +6081,7 @@ module.exports = ret;
 });                    ;if (typeof window !== 'undefined' && window !== null) {                               window.P = window.Promise;                                                     } else if (typeof self !== 'undefined' && self !== null) {                             self.P = self.Promise;                                                         }
 }).call(this,require('_process'),typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"_process":5}],3:[function(require,module,exports){
+/* jshint node: true, expr: true */
 "use strict";
 
 // Parse textual nock into a normalized data structure
@@ -6212,7 +6214,7 @@ function normalizeArray(nock) {
         if (!Array.isArray(cell)) {
             return cell;
         }
-        if (cell.length == 0) {
+        if (cell.length === 0) {
             return undefined;
         }
         if (cell.length == 1) {
@@ -6328,6 +6330,7 @@ function test1() {
 test1();
 
 },{}],4:[function(require,module,exports){
+/* jshint node: true, expr: true */
 "use strict";
 
 var parse = require("./parse");
@@ -6461,11 +6464,11 @@ angular.module('nockApp', [])
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             g.edges().forEach(function(e) {
                 //console.log("Edge " + e.v + " -> " + e.w + ": " + JSON.stringify(g.edge(e)));
-                var path = new Path2D()
+                var path = new Path2D();
                 var points = g.edge(e).points;
                 for (var i = 0; i < points.length; i++) {
                     var p = points[i];
-                    if (i == 0) {
+                    if (i === 0) {
                         path.moveTo(p.x, p.y);
                     }
                     else {
@@ -6476,7 +6479,7 @@ angular.module('nockApp', [])
             });
 
             nockTreeInstance.nockData = nockData;
-        }
+        };
 
         var step = function () {
             if (!engine) return;
@@ -6493,7 +6496,7 @@ angular.module('nockApp', [])
             nockData.result = engine.result;
 
             update();
-        }
+        };
 
         update();
         return {
@@ -6511,7 +6514,7 @@ var parseQueryString = function (url) {
     var query = (i >= 0) ? url.substring(i + 1) : url;
     var parts = query.split("&");
     var parsed = {};
-    for (var i = 0;  i < parts.length; i++) {
+    for (i = 0;  i < parts.length; i++) {
         var part = parts[i];
         var pair = part.split("=");
         var key = pair[0];

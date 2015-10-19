@@ -1,3 +1,4 @@
+/* jshint node: true, expr: true */
 "use strict";
 
 var parse = require("./parse");
@@ -131,11 +132,11 @@ angular.module('nockApp', [])
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             g.edges().forEach(function(e) {
                 //console.log("Edge " + e.v + " -> " + e.w + ": " + JSON.stringify(g.edge(e)));
-                var path = new Path2D()
+                var path = new Path2D();
                 var points = g.edge(e).points;
                 for (var i = 0; i < points.length; i++) {
                     var p = points[i];
-                    if (i == 0) {
+                    if (i === 0) {
                         path.moveTo(p.x, p.y);
                     }
                     else {
@@ -146,7 +147,7 @@ angular.module('nockApp', [])
             });
 
             nockTreeInstance.nockData = nockData;
-        }
+        };
 
         var step = function () {
             if (!engine) return;
@@ -163,7 +164,7 @@ angular.module('nockApp', [])
             nockData.result = engine.result;
 
             update();
-        }
+        };
 
         update();
         return {
@@ -181,7 +182,7 @@ var parseQueryString = function (url) {
     var query = (i >= 0) ? url.substring(i + 1) : url;
     var parts = query.split("&");
     var parsed = {};
-    for (var i = 0;  i < parts.length; i++) {
+    for (i = 0;  i < parts.length; i++) {
         var part = parts[i];
         var pair = part.split("=");
         var key = pair[0];

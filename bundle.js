@@ -6404,7 +6404,9 @@ angular.module('nockApp', [])
 
         var update = function () {
             if (!engine) return;
-            //console.log(JSON.stringify(nockTree));
+
+            var displayTree = engine.stack[engine.stack.length - 1].tree;
+            console.log("UPDATE: " + JSON.stringify(displayTree).replace(/,'/g, ' '));
 
             //console.log("UPDATE: stack " + engine.stack.length + ", result: " + nockData.result);
             engine.stack.forEach(function(level) {
@@ -6436,7 +6438,7 @@ angular.module('nockApp', [])
                 }
                 return node;
             }
-            addNode(nockTree, 1);
+            addNode(displayTree, 1);
             dagre.layout(g);
 
             nockData.nodes = [];

@@ -9,7 +9,7 @@ This project won't make any sense unless you know about nock.  Nock is the virtu
 
 running nock-step
 ---
-The only user interface element at this time is the "Step" button. You specify the nock expression in the url.  For example, an expression to increment the number 99 is [99 [4 0 1]].  So run the web page with the query string "?nock=[99 [4 0 1]]. Like [this](https://cdn.rawgit.com/bvschwartz/nock-step/master/?nock=[99+[4+0+1]]).
+The only user interface element at this time is the "Step" button. You specify the nock expression in the url.  For example, an expression to increment the number 99 is [99 [4 0 1]].  So run the web page with the query string "?nock=[99 [4 0 1]]". Like [this](https://cdn.rawgit.com/bvschwartz/nock-step/master/?nock=[99+[4+0+1]]).
 
 nock-step examples:
 ---

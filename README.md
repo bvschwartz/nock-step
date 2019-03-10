@@ -5,7 +5,7 @@ This project lets you watch a nock expression get processed step by step in a br
 
 what is nock?
 ---
-This project won't make any sense unless you know about nock.  Nock is the virtual machine of [Urbit](http://urbit.org). The complete fits on a page. Nock-step uses the terminology from the [nock reference](https://github.com/urbit/urbit/blob/master/urb/zod/pub/doc/nock/reference.md).
+This project won't make any sense unless you know about nock.  Nock is the virtual machine of [Urbit](http://urbit.org). The complete [spec](https://github.com/urbit/urbit/blob/master/Spec/nock/4.txt) fits on a page.
 
 Nock-step is based on [version 5](https://github.com/urbit/urbit/blob/master/Spec/nock/5.txt) of the nock spec and uses the termimology from the reference materials of that time. As of Jan 2018 that version was superseded by [version 4] (https://github.com/urbit/urbit/blob/master/Spec/nock/4.txt).  Urbit.org has published both a clear [explanation](https://urbit.org/docs/learn/arvo/nock/explanation/) and detailed [technical description](https://urbit.org/docs/learn/arvo/nock/definition/) of version 4.
 
